@@ -7,7 +7,7 @@ import threading
 from pylsl import StreamInlet, resolve_stream
 
 # =======================
-# 初期設定
+# 初期設定1
 # =======================
 pygame.init()
 font = pygame.font.SysFont(None, 32)
@@ -94,20 +94,27 @@ def spawn_zombies(stage):
 # LSL視線入力スレッド
 # =======================
 latest_gaze = [0,0]
+latest_powar = [0]
 def lsl_receive():
     global latest_gaze
+    global latest_powar
     streams = resolve_stream('type', 'gaze')
+    streams2 = resolve_stream('type','Markers')
     if not streams:
         print("⚠️ LSLストリームなし")
         return
     inlet = StreamInlet(streams[0])
+    inlet2 = StreamInlet(streams2[0])
     while True:
         sample, _ = inlet.pull_sample()
+        sample2, _ = inlet.pull_sample()
+        bandp = sample2[0]
         try:
             x = (sample[0] + sample[6])/2
             y = (sample[1] + sample[7])/2
             screen_info = pygame.display.Info()
             latest_gaze = [int(x*screen_info.current_w), int(y*screen_info.current_h)]
+            latest_powar = [bandp]
         except: pass
 
 # =======================
@@ -115,6 +122,7 @@ def lsl_receive():
 # =======================
 def main():
     global latest_gaze
+    global latest_powar
 
     # コンソールで選択
     input_mode = 0
@@ -151,7 +159,18 @@ def main():
         else:
             gx,gy = latest_gaze
 
-        pygame.draw.circle(screen,(255,0,0),(gx,gy),8,2)
+        
+        # radiusの決定
+        if latest_powar[0] == "NaN":
+            latest_powar[0] = 1
+        
+        radius = 8 + int(int(latest_powar[0]) * 20)  # 倍率は調整してください
+        print(latest_powar[0])
+        if radius < 5:  # 最小サイズの制限
+            radius = 5
+
+        pygame.draw.circle(screen, (255, 0, 0), (gx, gy), radius, 2)
+
 
         if stage_state in ["playing","boss"]:
             for z in zombies[:]:
